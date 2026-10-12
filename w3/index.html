@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>韓系甜美風 Meme 產生器</title>
+    <!-- 引入 Google Fonts：Noto Sans TC (正黑體) 與 Pacifico (甜美英文裝飾字體) -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&family=Pacifico&display=swap" rel="stylesheet">
+    <!-- 引入 html2canvas CDN 用於截圖下載 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
+    <style>
+        /* 韓系甜美風色彩與基礎設定 */
+        :root {
+            --bg-color: #fff5f7;          /* 背景色：柔和粉白 */
+            --card-bg: #ffffff;           /* 卡片白 */
+            --primary-color: #ffb5c2;     /* 主色：甜美粉紅 */
+            --primary-hover: #ff99a8;     /* 按鈕 hover 色 */
+            --text-color: #5a5255;        /* 文字主色：溫柔灰褐 */
+            --border-radius: 20px;        /* 大圓角，營造軟萌感 */
+            --shadow: 0 10px 25px rgba(255, 181, 194, 0.25); /* 粉嫩柔和陰影 */
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Noto Sans TC', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 30px 15px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        header h1 {
+            font-size: 2.2rem;
+            color: #ff8fa3;
+            font-weight: 700;
+            letter-spacing: 2px;
+            margin-bottom: 5px;
+        }
+
+        header p {
+            font-size: 0.95rem;
+            color: #8c8285;
+        }
+
+        /* 主容器：RWD 雙欄排版 (電腦左右，手機上下) */
+        .main-container {
+            display: flex;
+            flex-direction: row;
+            gap: 30px;
+            width: 100%;
+            max-width: 1000px;
+            justify-content: center;
+            align-items: flex-start;
+        }
+
+        /* 控制面板區與預覽區共用卡片樣式 */
+        .panel, .preview-section {
+            background-color: var(--card-bg);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            padding: 25px;
+            width: 100%;
+            flex: 1;
+        }
+
+        /* 控制面板元件間距 */
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        .control-group label {
+            display: block;
+            font-weight: 700;
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+            color: #6a5e62;
+        }
+
+        /* 檔案上傳美化按鈕 */
+        .file-upload-btn {
+            display: block;
+            background-color: #ffe5ec;
+            color: #ff758c;
+            text-align: center;
+            padding: 12px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 700;
+            transition: 0.3s;
+            border: 2px dashed #ffb5c2;
+        }
+
+        .file-upload-btn:hover {
+            background-color: #ffb5c2;
+            color: white;
+        }
+
+        #imageInput {
+            display: none; /* 隱藏原生陽春的 file input */
+        }
+
+        /* 文字輸入框樣式 */
+        input[type="text"] {
+            width: 100%;
+            padding: 10px 15px;
+            border: 2px solid #f3e1e6;
+            border-radius: 12px;
+            outline: none;
+            font-size: 0.95rem;
+            color: var(--text-color);
+            transition: 0.3s;
+            background-color: #fdfafb;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--primary-color);
+            background-color: #fff;
+        }
+
+        /* 滑桿美化 */
+        .range-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            accent-color: var(--primary-color);
+            cursor: pointer;
+        }
+
+        /* 迷因即時預覽區 */
+        .preview-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* 迷因畫布外框容器 (用於 html2canvas 截圖範圍) */
+        #memeCard {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            aspect-ratio: 1 / 1; /* 正方形畫布 */
+            background-color: #f7ecef;
+            border-radius: 16px;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            border: 4px solid #fff;
+        }
+
+        /* 底圖樣式 */
+        #memeImage {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* 確保圖片不變形填滿 */
+            display: none;     /* 尚未上傳圖片時隱藏 */
+        }
+
+        /* 尚未上傳時的提示文字 */
+        #placeholderText {
+            color: #bfa8af;
+            font-size: 0.95rem;
+            text-align: center;
+            padding: 20px;
+        }
+
+        /* 雙層文字通用樣式 (核心：黑色粗邊框確保任何背景都清晰) */
+        .meme-text {
+            position: absolute;
+            width: 90%;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            font-weight: 700;
+            font-size: 28px;
+            color: #ffffff;
+            /* 利用多重文字陰影營造超強黑邊效果 */
+            text-shadow: 
+                -2px -2px 0 #000,  
+                 2px -2px 0 #000, 
+                -2px  2px 0 #000,  
+                 2px  2px 0 #000,
+                 0px  3px 6px rgba(0,0,0,0.6);
+            word-break: break-word;
+            pointer-events: none; /* 避免文字阻擋滑鼠操作 */
+            line-height: 1.2;
+        }
+
+        /* 上下文字預設位置 */
+        #topTextElement {
+            top: 15px;
+        }
+
+        #bottomTextElement {
+            bottom: 15px;
+        }
+
+        /* 下載按鈕設計 */
+        .download-btn {
+            width: 100%;
+            margin-top: 20px;
+            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 99%);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 14px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(255, 154, 158, 0.4);
+            transition: 0.3s;
+        }
+
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 7px 20px rgba(255, 154, 158, 0.6);
+        }
+
+        /* RWD 響應式調整：當螢幕小於 768px（手機板）時改為上下單欄排版 */
+        @media (max-width: 768px) {
+            .main-container {
+                flex-direction: column;
+                align-items: center;
+            }
+            body {
+                padding: 15px 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>🌷 韓系甜美迷因產生器</h1>
+        <p>上傳照片、輸入文字，打造專屬你的可愛迷因！</p>
+    </header>
+
+    <div class="main-container">
+        <!-- 左側：控制面板區 -->
+        <div class="panel">
+            <!-- 1. 圖片上傳 (透過 FileReader 避開 CORS 錯誤) -->
+            <div class="control-group">
+                <label>選擇迷因底圖</label>
+                <label for="imageInput" class="file-upload-btn">📁 點此上傳電腦中的圖片</label>
+                <input type="file" id="imageInput" accept="image/*">
+            </div>
+
+            <!-- 2. 上方文字輸入 -->
+            <div class="control-group">
+                <label for="topTextInput">上方文字</label>
+                <input type="text" id="topTextInput" placeholder="請輸入上方文字...">
+            </div>
+
+            <!-- 3. 上方文字垂直位置滑桿 -->
+            <div class="control-group">
+                <label>上方文字垂直位置 (Top)</label>
+                <div class="range-container">
+                    <input type="range" id="topPosRange" min="5" max="80" value="15">
+                </div>
+            </div>
+
+            <!-- 4. 下方文字輸入 -->
+            <div class="control-group">
+                <label for="bottomTextInput">下方文字</label>
+                <input type="text" id="bottomTextInput" placeholder="請輸入下方文字...">
+            </div>
+
+            <!-- 5. 下方文字垂直位置滑桿 -->
+            <div class="control-group">
+                <label>下方文字垂直位置 (Bottom)</label>
+                <div class="range-container">
+                    <input type="range" id="bottomPosRange" min="5" max="80" value="15">
+                </div>
+            </div>
+
+            <!-- 6. 字體大小滑桿 -->
+            <div class="control-group">
+                <label>整體字體大小 (Font Size)</label>
+                <div class="range-container">
+                    <input type="range" id="fontSizeRange" min="16" max="50" value="28">
+                </div>
+            </div>
+        </div>
+
+        <!-- 右側：迷因即時預覽區 -->
+        <div class="preview-section">
+            <!-- 截圖標的區塊 -->
+            <div id="memeCard">
+                <div id="placeholderText">請先在左側上傳圖片 📸</div>
+                <img id="memeImage" alt="迷因底圖">
+                <div id="topTextElement" class="meme-text"></div>
+                <div id="bottomTextElement" class="meme-text"></div>
+            </div>
+
+            <!-- 一鍵下載按鈕 -->
+            <button class="download-btn" id="downloadBtn">✨ 下載我的迷因圖 (my-meme.png)</button>
+        </div>
+    </div>
+
+    <script>
+        // 取得 DOM 元素
+        const imageInput = document.getElementById('imageInput');
+        const memeImage = document.getElementById('memeImage');
+        const placeholderText = document.getElementById('placeholderText');
+        
+        const topTextInput = document.getElementById('topTextInput');
+        const bottomTextInput = document.getElementById('bottomTextInput');
+        
+        const topTextElement = document.getElementById('topTextElement');
+        const bottomTextElement = document.getElementById('bottomTextElement');
+        
+        const fontSizeRange = document.getElementById('fontSizeRange');
+        const topPosRange = document.getElementById('topPosRange');
+        const bottomPosRange = document.getElementById('bottomPosRange');
+        
+        const downloadBtn = document.getElementById('downloadBtn');
+        const memeCard = document.getElementById('memeCard');
+
+        // 1. 處理本機圖片上傳與預覽 (使用 FileReader 避免跨域 CORS 問題)
+        imageInput.addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    memeImage.src = e.target.result;
+                    memeImage.style.display = 'block';
+                    placeholderText.style.display = 'none'; // 隱藏提示字
+                }
+                reader.readAsDataURL(file); // 轉為 Base64 格式載入圖片
+            }
+        });
+
+        // 2. 即時同步文字內容
+        topTextInput.addEventListener('input', function() {
+            topTextElement.textContent = this.value;
+        });
+
+        bottomTextInput.addEventListener('input', function() {
+            bottomTextElement.textContent = this.value;
+        });
+
+        // 3. 即時控制字體大小
+        fontSizeRange.addEventListener('input', function() {
+            const size = this.value + 'px';
+            topTextElement.style.fontSize = size;
+            bottomTextElement.style.fontSize = size;
+        });
+
+        // 4. 即時控制上方文字垂直位置 (使用 CSS top 屬性)
+        topPosRange.addEventListener('input', function() {
+            topTextElement.style.top = this.value + '%';
+            topTextElement.style.bottom = 'auto'; // 清除衝突屬性
+        });
+
+        // 5. 即時控制下方文字垂直位置 (使用 CSS bottom 屬性)
+        bottomPosRange.addEventListener('input', function() {
+            bottomTextElement.style.bottom = this.value + '%';
+            bottomTextElement.style.top = 'auto'; // 清除衝突屬性
+        });
+
+        // 6. 使用 html2canvas 實現一鍵截圖下載功能
+        downloadBtn.addEventListener('click', function() {
+            // 檢查是否已上傳圖片
+            if (memeImage.style.display === 'none') {
+                alert('請先上傳一張迷因底圖再進行下載唷！🌸');
+                return;
+            }
+
+            // 呼叫 html2canvas 套件把 #memeCard 轉成 Canvas 畫布
+            html2canvas(memeCard, {
+                useCORS: true,      // 允許跨域圖片讀取
+                scale: 2            // 提升輸出圖片的清晰度 (2倍解析度)
+            }).then(canvas => {
+                // 將 Canvas 轉換成圖片 URL
+                const imageURL = canvas.toDataURL('image/png');
+                
+                // 建立一個隱藏的超連結進行自動下載
+                const link = document.createElement('a');
+                link.href = imageURL;
+                link.download = 'my-meme.png'; // 指定下載檔名
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link); // 下載後移除節點
+            }).catch(err => {
+                console.error('截圖失敗：', err);
+                alert('抱歉，下載時發生了一點小狀況，請再試一次！');
+            });
+        });
+    </script>
+</body>
+</html>
